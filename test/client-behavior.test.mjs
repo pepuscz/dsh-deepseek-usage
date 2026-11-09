@@ -643,123 +643,16 @@ test('订阅用量形态：指示灯与仪表盘弧共用同一套低饱和度�
   assert.deepEqual(peak.arcs, [88, 16]);
 });
 
-test('不可查的 provider：卡片置空说明原因，且不出现任何数字', async () => {
-  const { usage } = makePendingFetch();
-  const runtime = makeRuntime();
-  const Comp = loadClient(runtime);
-  renderCard(Comp, runtime);
-  usage()[0].resolve(unsupportedResponse());
-  await flush();
-  const text = textOf(renderCard(Comp, runtime).out);
-  assert.ok(text.includes('当前插件不支持 Workbuddy'), `应显示原因，实际 ${text}`);
-  // 不画读数、单价、圆点：卡片里只有那句原因。
-  assert.ok(!/\d+%/.test(text), `不得出现百分比，实际 ${text}`);
-  assert.ok(!text.includes('¥') && !text.includes('$'), `不得出现币种符号，实际 ${text}`);
-});
-
-test('不可查的 provider：卡片文字不是错误色', async () => {
-  const { usage } = makePendingFetch();
-  const runtime = makeRuntime();
-  const Comp = loadClient(runtime);
-  renderCard(Comp, runtime);
-  usage()[0].resolve(unsupportedResponse());
-  await flush();
-  const out = renderCard(Comp, runtime).out;
-
-  // 找到承载原因文字的那个 div，读它的 color。
-  let reasonColor = null;
-  const walk = (node) => {
-    if (!node || typeof node !== 'object' || reasonColor !== null) return;
-    if (Array.isArray(node)) { node.forEach(walk); return; }
-    const kids = node.children ?? [];
-    const isReason = kids.some((c) => typeof c === 'string' && c.includes('当前插件不支持'));
-    if (isReason && node.props && node.props.style) reasonColor = node.props.style.color;
-    kids.forEach(walk);
-  };
-  walk(out);
-
-  // `kind: none` 不是错误：用次要文字色陈述事实，不是错误红。
-  const ERR = 'var(--dsw-alias-state-error-primary, rgb(200,40,40))';
-  assert.notEqual(reasonColor, ERR, `不可查的提供商不该用错误色，实际 ${reasonColor}`);
-  assert.equal(reasonColor, 'var(--dsw-alias-label-secondary, rgba(0,0,0,.55))');
-});
-
-/** 伪造设置外壳：`sidebar.settings` 注册项共享的 store，记录 openSection 的分区 id。 */
-function settingsShellServices(opened) {
-  const shell = { actions: { openSection: (id) => { opened.push(id); } } };
-  return {
-    // 真实槽位 ledger 把 store 句柄放在 entry.store 上（options 是渲染侧擦除过的空壳）。
-    slotsEntries: (name) => (name === 'sidebar.settings'
-      ? [{ store: { create: () => shell } }]
-      : []),
-  };
-}
-
-test('不可查的 provider：卡片给出「去映射」，点击直接打开设置页', async () => {
-  const opened = [];
-  const { usage } = makePendingFetch();
-  const runtime = makeRuntime();
-  const Comp = loadClient(runtime, 'zh', settingsShellServices(opened));
-  renderCard(Comp, runtime);
-  usage()[0].resolve(unsupportedResponse());
-  await flush();
-
-  const out = renderCard(Comp, runtime).out;
-  const button = nodesOf(out).find((n) => n.type === 'button' && (n.children ?? []).join('') === '去映射');
-  assert.ok(button, `不支持时应有「去映射」按钮，实际 ${textOf(out)}`);
-  button.props.onClick({ stopPropagation() {} });
-  assert.deepEqual(opened, ['deepseek-usage'], '应跳到 DeepSeek 用量设置分区');
-});
-
-test('不可查的 provider：没有设置外壳时不显示「去映射」', async () => {
-  const { usage } = makePendingFetch();
-  const runtime = makeRuntime();
-  const Comp = loadClient(runtime);
-  renderCard(Comp, runtime);
-  usage()[0].resolve(unsupportedResponse());
-  await flush();
-
-  const out = renderCard(Comp, runtime).out;
-  assert.ok(!nodesOf(out).some((n) => n.type === 'button'), '没有设置外壳时不应出现按钮');
-  assert.ok(textOf(out).includes('当前插件不支持 Workbuddy'), '原因文案照旧显示');
-});
-
-test('不可查的 provider：英文界面按钮文案为 Set up mapping', async () => {
-  const opened = [];
-  const { usage } = makePendingFetch();
-  const runtime = makeRuntime();
-  const Comp = loadClient(runtime, 'en', settingsShellServices(opened));
-  renderCard(Comp, runtime);
-  usage()[0].resolve(unsupportedResponse());
-  await flush();
-
-  const out = renderCard(Comp, runtime).out;
-  const button = nodesOf(out).find((n) => n.type === 'button' && (n.children ?? []).join('') === 'Set up mapping');
-  assert.ok(button, `英文按钮文案不对，实际 ${textOf(out)}`);
-});
-
-test('折叠态下不可查且无错误时整块不渲染', async () => {
-  const { usage } = makePendingFetch();
-  const runtime = makeRuntime();
-  const Comp = loadClient(runtime);
-  renderCard(Comp, runtime, { wide: false });
-  // 先回一个 kind=none 但无错误的响应（构造上不该出现，但渲染要稳）。
-  usage()[0].resolve({
-    ok: true,
-    status: 200,
-    json: async () => ({
-      ok: true,
-      provider: { id: 'workbuddy', displayName: 'Workbuddy', kind: 'none', reason: 'unsupported' },
-      balance: { isAvailable: null, total: null, currency: null },
-      usage: null,
-      tier: { input: 2, known: false },
-      next: { at: Date.now() + 3_600_000 },
-      peak: false,
-      errors: [],
-    }),
-  });
-  await flush();
-  assert.equal(renderCard(Comp, runtime, { wide: false }).out, null, '折叠态没有可显示内容时返回 null');
+test('providers without a usage API render no sidebar row in either layout', async () => {
+  for (const wide of [true, false]) {
+    const { usage } = makePendingFetch();
+    const runtime = makeRuntime();
+    const Comp = loadClient(runtime);
+    renderCard(Comp, runtime, { wide });
+    usage()[0].resolve(unsupportedResponse());
+    await flush();
+    assert.equal(renderCard(Comp, runtime, { wide }).out, null);
+  }
 });
 
 // ---- 设置页：DeepSeek 用量（映射 + OAuth 令牌）----------------------------
