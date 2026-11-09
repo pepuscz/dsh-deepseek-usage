@@ -1,3 +1,8 @@
+> **Compact UI fork:** subscription gauges are replaced by labeled quota bars.
+> Provider APIs and credentials retain upstream compatibility. See [FORK.md](FORK.md)
+> for the update workflow. The documentation and screenshots below describe upstream.
+> Install this fork from a reviewed Git snapshot; the npm command below installs upstream.
+
 <img src="https://cdn.jsdelivr.net/npm/@dougen/dsh-deepseek-usage/icon.svg" alt="dsh-deepseek-usage icon" width="72" align="right" />
 
 # dsh-deepseek-usage
