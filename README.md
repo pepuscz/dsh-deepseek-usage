@@ -1,4 +1,4 @@
-> **Compact UI fork:** subscription gauges are replaced by labeled quota bars.
+> **Compact UI fork:** subscription gauges are replaced by a quiet inline quota summary.
 > Provider APIs and credentials retain upstream compatibility. See [FORK.md](FORK.md)
 > for the update workflow. The documentation and screenshots below describe upstream.
 > Install this fork from a reviewed Git snapshot; the npm command below installs upstream.

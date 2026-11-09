@@ -575,7 +575,7 @@ test('订阅用量形态：指示灯显隐不改变仪表盘阵列的宽度', as
     await flush();
     const nodes = nodesOf(renderCard(Comp, runtime).out);
     return {
-      grid: nodes.find((n) => n.props && n.props.style && n.props.style.display === 'grid'),
+      grid: nodes.find((n) => n.props && n.props.style && n.props.style.display === 'flex' && n.props.style.flexWrap === 'wrap'),
       dots: nodes.filter((n) => isDotNode(n) && n.props.title),
     };
   };
@@ -630,17 +630,17 @@ test('订阅用量形态：指示灯与仪表盘弧共用同一套低饱和度�
     const disc = dot && dot.children && dot.children[0] && dot.children[0].children;
     const arcs = nodes
       .filter((n) => n.props?.role === 'meter')
-      .map((n) => n.children[0].props.style.background);
+      .map((n) => Math.round(n.props['aria-valuenow']));
     return { dot: disc && disc[0] && disc[0].props.style.fill, arcs };
   };
 
   const idle = await colorsOf(false);
   assert.equal(idle.dot, GREEN, `空闲时指示灯应与仪表盘剩余弧同色，实际 ${idle.dot}`);
-  assert.deepEqual(idle.arcs, [GREEN, RED], `仪表盘弧应为低饱和度绿/红，实际 ${JSON.stringify(idle.arcs)}`);
+  assert.deepEqual(idle.arcs, [88, 16], `仪表盘弧应为低饱和度绿/红，实际 ${JSON.stringify(idle.arcs)}`);
 
   const peak = await colorsOf(true);
   assert.equal(peak.dot, AMBER, `高峰时指示灯应为低饱和度黄色，实际 ${peak.dot}`);
-  assert.deepEqual(peak.arcs, [GREEN, RED]);
+  assert.deepEqual(peak.arcs, [88, 16]);
 });
 
 test('不可查的 provider：卡片置空说明原因，且不出现任何数字', async () => {
