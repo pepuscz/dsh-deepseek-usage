@@ -3,7 +3,7 @@
 Upstream: https://github.com/dougen/dsh-deepseek-usage (MIT).
 Baseline: v0.20.0, commit 87c7e2d (see Git ancestry for full SHA).
 
-This fork replaces subscription gauges with a quiet inline quota summary with
+This fork replaces subscription gauges with a quiet inline quota summary with tiny monochrome pie indicators and
 explicit percentages; provider names are in tooltips. Reset times remain in tooltips.
 Provider requests, settings, package identity and host API retain upstream compatibility.
 Claude and Codex reuse existing DSH llm-pi-ai logins when no explicit usage token is set.
