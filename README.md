@@ -85,3 +85,5 @@ Use a plugin version that matches your DSH:
 | `0.1.x` (from `0.1.0-rc.6` on) | `0.10.x`, or `0.11.0` or later |
 
 Run `dsh --version` to check your DSH version. Installing without an explicit version picks the newest compatible release automatically; if the newest release does not match your DSH, pin an exact one, e.g. `@dougen/dsh-deepseek-usage@0.10.2`.
+
+Quota reset details appear in a small rendered tooltip on hover, keyboard focus, or click on a pie. Escape or leaving the control dismisses it; the sidebar stays compact. No additional dependencies.
