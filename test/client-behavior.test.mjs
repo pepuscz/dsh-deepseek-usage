@@ -475,13 +475,13 @@ test('订阅用量形态：一张卡片里同时渲染所有窗口', async () =>
   await flush();
   const out = renderCard(Comp, runtime).out;
   const text = textOf(out);
-  // 每个窗口一个仪表盘：百分比在弧内，周期缩写徽章在底部缺口。
+  // One compact bar per window, with a short period label.
   assert.ok(text.includes('5H'), `应显示 5 小时徽章，实际 ${text}`);
   assert.ok(text.includes('7D'), `应显示 7 天徽章，实际 ${text}`);
-  // 弧内只显示剩余量（不带百分号），字号 15；完整百分比留到悬浮说明。
-  const numbers = nodesOf(out).filter((n) => n.props && n.props.style && n.props.style.fontSize === 15).map(textOf);
-  assert.deepEqual(numbers, ['96', '66'], `弧内应显示剩余量（不带百分号），实际 ${JSON.stringify(numbers)}`);
-  assert.ok(!text.includes('%'), `卡片上不再显示百分号，实际 ${text}`);
+  // Compact rows explicitly label remaining quota as a percentage.
+  const numbers = nodesOf(out).filter((n) => n.props && n.props.style && n.props.style.fontSize === 11).map(textOf);
+  assert.deepEqual(numbers, ['96%', '66%'], `Rows show remaining percentages，实际 ${JSON.stringify(numbers)}`);
+  assert.ok(text.includes('%'), `Percent signs must be visible，实际 ${text}`);
   assert.ok(!text.includes('—'), `拿到数据后不应有占位符，实际 ${text}`);
   // 完整周期名与重置倒计时在悬浮说明里（环内放不下）。
   const titles = nodesOf(out).map((n) => n.props && n.props.title).filter((t) => typeof t === 'string');
@@ -537,8 +537,8 @@ test('订阅用量形态：接口返回三个档位时三个都上屏并按 5H�
   const at7d = text.indexOf('7D');
   const at1m = text.indexOf('1M');
   assert.ok(at5h >= 0 && at7d > at5h && at1m > at7d, `窗口应按 5H→7D→1M 排列，实际 ${text}`);
-  const numbers = nodesOf(renderCard(Comp, runtime).out).filter((n) => n.props && n.props.style && n.props.style.fontSize === 15).map(textOf);
-  assert.deepEqual(numbers, ['99', '76', '42'], `三个窗口都要显示剩余量，实际 ${JSON.stringify(numbers)}`);
+  const numbers = nodesOf(renderCard(Comp, runtime).out).filter((n) => n.props && n.props.style && n.props.style.fontSize === 11).map(textOf);
+  assert.deepEqual(numbers, ['99%', '76%', '42%'], `三个窗口都要显示剩余量，实际 ${JSON.stringify(numbers)}`);
 });
 
 /** 订阅形态的宿主响应：三个窗口固定，计费区间由用例决定。 */
@@ -629,8 +629,8 @@ test('订阅用量形态：指示灯与仪表盘弧共用同一套低饱和度�
     // 圆点本体是 dot 里的 SVG 圆，颜色写在 circle 的 style.fill 上。
     const disc = dot && dot.children && dot.children[0] && dot.children[0].children;
     const arcs = nodes
-      .filter((n) => n.type === 'circle' && n.props && n.props.style && typeof n.props.style.stroke === 'string')
-      .map((n) => n.props.style.stroke);
+      .filter((n) => n.props?.role === 'meter')
+      .map((n) => n.children[0].props.style.background);
     return { dot: disc && disc[0] && disc[0].props.style.fill, arcs };
   };
 
