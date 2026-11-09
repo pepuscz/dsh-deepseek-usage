@@ -484,7 +484,7 @@ test('订阅用量形态：一张卡片里同时渲染所有窗口', async () =>
   assert.ok(text.includes('%'), `Percent signs must be visible，实际 ${text}`);
   assert.ok(!text.includes('—'), `拿到数据后不应有占位符，实际 ${text}`);
   // 完整周期名与重置倒计时在悬浮说明里（环内放不下）。
-  const titles = nodesOf(out).map((n) => n.props && n.props.title).filter((t) => typeof t === 'string');
+  const titles = nodesOf(out).map((n) => n.props && n.props["aria-label"]).filter((t) => typeof t === 'string');
   assert.ok(titles.some((t) => t.includes('5 小时：已用 4%')), `5 小时窗口应有完整悬浮说明，实际 ${titles.join(' | ')}`);
   assert.ok(titles.some((t) => t.includes('7 天：已用 34%，')), `7 天窗口的悬浮说明应带重置倒计时，实际 ${titles.join(' | ')}`);
 });
