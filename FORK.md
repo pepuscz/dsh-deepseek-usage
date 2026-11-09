@@ -5,7 +5,10 @@ Baseline: v0.20.0, commit 87c7e2d (see Git ancestry for full SHA).
 
 This fork replaces subscription gauges with a quiet inline quota summary with
 explicit percentages; provider names are in tooltips. Reset times remain in tooltips.
-Provider requests, credentials, settings, package identity and host API are unchanged.
+Provider requests, settings, package identity and host API retain upstream compatibility.
+Claude and Codex reuse existing DSH llm-pi-ai logins when no explicit usage token is set.
+The owning DSH provider handles token refresh; this plugin never copies or refreshes tokens.
+Expired saved logins are rejected. Standalone CLI installations alone are not imported.
 
 ## Upstream updates
 

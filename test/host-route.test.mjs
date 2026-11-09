@@ -99,6 +99,7 @@ function makeCtx(options = {}) {
       },
       // 记录 API：DeepSeek 账号登录的 grant 走这里（options.grant 注入令牌）。
       readRecord: async (key) => {
+        if (options.records?.[key]) return options.records[key];
         if (options.grant === undefined) return undefined;
         const name = key && typeof key === "object" && "name" in key ? key.name : String(key);
         if (name !== "deepseek-account-platform/default") return undefined;
@@ -1063,4 +1064,57 @@ test('lang 参数：只有中文标签用中文，其它语言与缺省都用英
     assert.equal(res.status, 200);
     assert.deepEqual(res.body.errors, [expected], url);
   }
+});
+
+for (const provider of ['anthropic', 'openai-codex']) {
+  test(`DSH ${provider} login supplies usage without a copied token`, async () => {
+    resetFetch();
+    let headers;
+    fetchRoutes = {
+      [provider === 'anthropic' ? '/api/oauth/usage' : '/backend-api/wham/usage']: (_url, init) => {
+        headers = init.headers;
+        return new Response(JSON.stringify(provider === 'anthropic'
+          ? { five_hour: { utilization: 12 } }
+          : { rate_limit: { primary_window: { used_percent: 12, limit_window_seconds: 18000 } } }), { status: 200 });
+      },
+    };
+    const { ctx, routes } = makeCtx({ provider, refs: {},
+      registered: [{ id: provider }],
+      records: { ['llm-pi-ai/' + provider]: { payload: { access: 'test-saved-access', accountId: 'test-account', expires: Date.now() + 60000 } } },
+    });
+    apply(ctx);
+    const page = await call(routes.get('/api/deepseek-usage/accounts'), makeReq({ host: 'localhost' }));
+    assert.equal(page.body.oauth[0].configured, true);
+    const res = await call(routes.get('/api/deepseek-usage'), makeReq({ host: 'localhost' }));
+    assert.deepEqual(res.body.errors, []);
+    assert.equal(headers.Authorization, 'Bearer test-saved-access');
+    if (provider === 'openai-codex') assert.equal(headers['ChatGPT-Account-Id'], 'test-account');
+    assert.ok(!JSON.stringify(res.body).includes('test-saved-access'));
+  });
+}
+
+test('expired DSH login is not sent upstream', async () => {
+  resetFetch();
+  const { ctx, routes } = makeCtx({ provider: 'openai-codex', refs: {},
+    records: { 'llm-pi-ai/openai-codex': { payload: { access: 'expired-secret', expires: 1 } } },
+  });
+  apply(ctx);
+  const res = await call(routes.get('/api/deepseek-usage'), makeReq({ host: 'localhost' }));
+  assert.ok(res.body.errors.length);
+  assert.equal(upstreamCalls.length, 0);
+});
+
+test('explicit usage token wins over saved DSH login', async () => {
+  resetFetch();
+  let authorization;
+  fetchRoutes = { '/api/oauth/usage': (_url, init) => {
+    authorization = init.headers.Authorization;
+    return new Response(JSON.stringify({ five_hour: { utilization: 1 } }), { status: 200 });
+  } };
+  const { ctx, routes } = makeCtx({ provider: 'anthropic', refs: { DSH_USAGE_CLAUDE_OAUTH_TOKEN: 'explicit-test-token' },
+    records: { 'llm-pi-ai/anthropic': { payload: { access: 'saved-test-token' } } },
+  });
+  apply(ctx);
+  await call(routes.get('/api/deepseek-usage'), makeReq({ host: 'localhost' }));
+  assert.equal(authorization, 'Bearer explicit-test-token');
 });
