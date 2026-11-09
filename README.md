@@ -14,6 +14,17 @@ English | [中文](README.zh.md)
 
 A **DeepSeek Harness (DSH)** sidebar plugin that shows, right in the DSH main window, how much money or quota is left on the account behind the currently selected model, and what that model costs right now — without leaving DSH. It supports nine providers.
 
+## Small dependency footprint, easier security review
+
+This fork adds **no npm runtime or development dependencies**. It reuses Node/browser APIs and services already supplied by DSH, keeping the additional dependency tree small and the source easier to inspect.
+
+- **No install lifecycle scripts.** CI runs tests without installing npm packages.
+- **Dependency changes are visible.** Tests enforce the reviewed manifest baseline, including peer dependencies and common lifecycle hooks.
+- **Pinned CI tooling.** GitHub Actions use full commit hashes instead of moving version tags.
+- **Deliberate updates.** Our release policy requires reviewed Git snapshots and SHA-256 checksums before promotion.
+
+These safeguards reduce supply-chain exposure; they are not a security certification or a sandbox. DSH and its own dependencies remain part of the trust boundary. See the [dependency and review policy](DEPENDENCIES.md).
+
 <img src="https://cdn.jsdelivr.net/npm/@dougen/dsh-deepseek-usage/screenshot.png" alt="The sidebar card: balance, current unit prices and the billing-window dot" width="520" />
 
 *Balance mode (DeepSeek, Kimi, Z.ai, OpenRouter…): the account balance, the current model's input / cache / output unit prices, and the peak / off-peak indicator in the top-right corner.*
@@ -74,5 +85,3 @@ Use a plugin version that matches your DSH:
 | `0.1.x` (from `0.1.0-rc.6` on) | `0.10.x`, or `0.11.0` or later |
 
 Run `dsh --version` to check your DSH version. Installing without an explicit version picks the newest compatible release automatically; if the newest release does not match your DSH, pin an exact one, e.g. `@dougen/dsh-deepseek-usage@0.10.2`.
-
-Dependency policy: [DEPENDENCIES.md](DEPENDENCIES.md).
