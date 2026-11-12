@@ -1133,3 +1133,18 @@ test('delegates private HTTPS admission to DSH and fails closed', async () => {
   ctx.connection.admit = () => { throw new Error('unavailable'); };
   assert.equal((await call(route, req)).status, 403);
 });
+
+
+test('OAuth 429 respects Retry-After instead of polling upstream again', async () => {
+  resetFetch();
+  fetchRoutes['/api/oauth/usage'] = () => new Response('{}', {status: 429, headers: {'retry-after': '3600'}});
+  const {ctx, routes} = makeCtx({provider: 'anthropic', refs: {DSH_USAGE_CLAUDE_OAUTH_TOKEN: 'test-cooldown-token'}});
+  apply(ctx);
+  const req = makeReq({host: '127.0.0.1:64452'}, '/api/deepseek-usage?lang=en');
+  const first = await call(routes.get('/api/deepseek-usage'), req);
+  const second = await call(routes.get('/api/deepseek-usage'), req);
+  assert.equal(first.status, 200);
+  assert.match(JSON.stringify(first.body), /rate-limited/);
+  assert.deepEqual(second.body.errors, first.body.errors);
+  assert.equal(upstreamCalls.length, 1);
+});
