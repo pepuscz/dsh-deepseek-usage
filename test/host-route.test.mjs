@@ -1118,3 +1118,18 @@ test('explicit usage token wins over saved DSH login', async () => {
   await call(routes.get('/api/deepseek-usage'), makeReq({ host: 'localhost' }));
   assert.equal(authorization, 'Bearer explicit-test-token');
 });
+
+
+test('delegates private HTTPS admission to DSH and fails closed', async () => {
+  const { ctx, routes } = makeCtx({ provider: 'local-model' });
+  let admission = { rejection: 401 };
+  ctx.connection = { admit: () => admission };
+  apply(ctx);
+  const route = routes.get('/api/deepseek-usage');
+  const req = makeReq({ host: 'development.example:19443' });
+  assert.equal((await call(route, req)).status, 403);
+  admission = { peer: { id: 'owner' } };
+  assert.equal((await call(route, req)).status, 200);
+  ctx.connection.admit = () => { throw new Error('unavailable'); };
+  assert.equal((await call(route, req)).status, 403);
+});
