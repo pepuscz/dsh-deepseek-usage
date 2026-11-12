@@ -368,32 +368,36 @@ test('失败按阶梯补请求；成功一次会取消待发的补请求并复�
   };
   const before = calls.length;
   mode = 'ok';
-  renderCard(Comp, runtime).out.props.onClick();
+  assert.equal(renderCard(Comp, runtime).out, null);
+  scheduled[0]();
   await flush();
   assert.equal(delays.length, 1, `成功后不应再安排补请求，实际 ${delays.join(',')}`);
-  assert.ok(cleared.length > 0, '成功后必须清掉待发的补请求定时器');
+  assert.ok(textOf(renderCard(Comp, runtime).out).includes('42.00'), 'Background retry restores usable figures');
   globalThis.clearTimeout = realClearTimeout;
   globalThis.setTimeout = realSetTimeout;
 });
 
-test('一次失败后再成功：错误文案消失，余额显示出来', async () => {
+test('silent failure recovers through the scheduled background retry', async () => {
   const { usage } = makePendingFetch();
   const runtime = makeRuntime();
   const Comp = loadClient(runtime);
-  renderCard(Comp, runtime);
-  // 第一次失败
-  usage()[0].resolve({ ok: false, status: 500, json: async () => ({ ok: false, message: 'boom' }) });
-  await flush();
-  let text = textOf(renderCard(Comp, runtime).out);
-  assert.ok(text.includes('boom'), `失败时应显示错误，实际 ${text}`);
-
-  // 再点一次并成功
-  renderCard(Comp, runtime).out.props.onClick();
-  usage()[1].resolve(okResponse(6.66));
-  await flush();
-  text = textOf(renderCard(Comp, runtime).out);
-  assert.ok(text.includes('6.66'), `成功后应显示余额，实际 ${text}`);
-  assert.ok(!text.includes('boom'), '成功后错误文案必须消失');
+  const original = globalThis.setTimeout;
+  let retry;
+  globalThis.setTimeout = (fn, ms, ...args) => {
+    if (ms === 4000) { retry = fn; return undefined; }
+    return original(fn, ms, ...args);
+  };
+  try {
+    renderCard(Comp, runtime);
+    usage()[0].resolve({ ok: false, status: 500, json: async () => ({ok: false, message: 'boom'}) });
+    await flush();
+    assert.equal(renderCard(Comp, runtime).out, null);
+    assert.equal(typeof retry, 'function');
+    retry();
+    usage().at(-1).resolve(okResponse(6.66));
+    await flush();
+    assert.ok(textOf(renderCard(Comp, runtime).out).includes('6.66'));
+  } finally { globalThis.setTimeout = original; }
 });
 
 test('宿主返回的假期表覆盖内置表：峰谷判定跟着宿主走', async () => {
@@ -1175,4 +1179,18 @@ test('DSH 语言切换后立即按新语言重取一次', async () => {
     .map((n) => n.props && n.props['aria-label'])
     .filter(Boolean);
   assert.ok(labels.includes('Account usage, click to refresh'), `切换后应显示英文文案，实际 ${JSON.stringify(labels)}`);
+});
+
+
+test('provider errors are invisible in both sidebar widths', async () => {
+  globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({
+    ok: true, provider: {id: 'anthropic', kind: 'oauth'}, usage: null,
+    errors: ['Usage temporarily rate-limited'],
+  }) });
+  const runtime = makeRuntime();
+  const Comp = loadClient(runtime);
+  renderCard(Comp, runtime);
+  await flush();
+  assert.equal(renderCard(Comp, runtime).out, null);
+  assert.equal(renderCard(Comp, runtime, {wide: false}).out, null);
 });
