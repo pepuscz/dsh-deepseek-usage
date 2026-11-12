@@ -647,7 +647,7 @@ test('订阅用量形态：指示灯与仪表盘弧共用同一套低饱和度�
   assert.deepEqual(peak.arcs, [88, 16]);
 });
 
-test('providers without a usage API show a neutral icon in either layout', async () => {
+test('providers without a usage API keep an empty panel in either layout', async () => {
   for (const wide of [true, false]) {
     const { usage } = makePendingFetch();
     const runtime = makeRuntime();
@@ -1182,7 +1182,7 @@ test('DSH 语言切换后立即按新语言重取一次', async () => {
 });
 
 
-test('provider errors stay in the neutral icon tooltip in both sidebar widths', async () => {
+test('provider errors stay in the existing panel tooltip in both sidebar widths', async () => {
   globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({
     ok: true, provider: {id: 'anthropic', kind: 'oauth'}, usage: null,
     errors: ['Usage temporarily rate-limited'],
@@ -1196,11 +1196,11 @@ test('provider errors stay in the neutral icon tooltip in both sidebar widths', 
 });
 
 function assertNeutralUsage(node) {
-  assert.equal(node.type, 'button');
-  assert.ok(node.props.style.width === 24 || node.props.style.width === 'auto');
-  assert.equal(textOf(node), node.props.style.width === 24 ? '' : 'Usage');
+  assert.equal(node.props.role, 'button');
   assert.ok(node.props.title);
-  assert.equal(node.props.style.background, 'transparent');
+  assert.ok(!textOf(node).includes('rate-limited'));
+  assert.ok(!textOf(node).includes('boom'));
+  assert.equal(nodesOf(node).filter(n => n.props?.role === 'meter').length, 0);
 }
 
 test('English usage text does not flash a host fallback dictionary during panel hydration', async () => {
@@ -1213,4 +1213,21 @@ test('English usage text does not flash a host fallback dictionary during panel 
   const out = renderCard(Comp, runtime).out;
   assert.equal(out.props['aria-label'], 'Account usage, click to refresh');
   assert.ok(!textOf(out).includes('余额'));
+});
+
+test('unavailable subscription keeps labeled quota windows without fabricated percentages', async () => {
+  globalThis.fetch = async () => ({ok: true, status: 200, json: async () => ({
+    ok: true, provider: {id: 'anthropic', displayName: 'Claude Code', kind: 'oauth'},
+    usage: null, errors: ['Usage temporarily rate-limited'],
+  })});
+  const runtime = makeRuntime(); const Comp = loadClient(runtime, 'en');
+  renderCard(Comp, runtime); await flush();
+  const out = renderCard(Comp, runtime).out;
+  assert.equal(out.props.style.minHeight, 20);
+  const text = textOf(out);
+  assert.ok(text.includes('Claude') && text.includes('5H') && text.includes('7D'));
+  assert.equal((text.match(/—/g) || []).length, 2);
+  assert.ok(!text.includes('%') && !text.includes('rate-limited'));
+  assert.equal(nodesOf(out).filter(n => n.props?.['aria-valuenow'] !== undefined).length, 0);
+  assert.match(out.props.title, /rate-limited/);
 });
