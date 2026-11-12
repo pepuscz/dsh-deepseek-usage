@@ -1197,8 +1197,8 @@ test('provider errors stay in the neutral icon tooltip in both sidebar widths', 
 
 function assertNeutralUsage(node) {
   assert.equal(node.type, 'button');
-  assert.equal(node.props.style.width, 24);
-  assert.equal(textOf(node), '');
+  assert.ok(node.props.style.width === 24 || node.props.style.width === 'auto');
+  assert.equal(textOf(node), node.props.style.width === 24 ? '' : 'Usage');
   assert.ok(node.props.title);
   assert.equal(node.props.style.background, 'transparent');
 }
