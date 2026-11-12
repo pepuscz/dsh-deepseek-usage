@@ -114,7 +114,7 @@ function loadSlots(runtime, lang = 'zh', services = {}) {
       subscribe: () => () => {},
       getSnapshot: () => ({ active: localeState.active, locales: [], revision: 0 }),
       // 与 DSH 一致：中文直接给 key（组件回退中文词典），其它语言回退英文词典。
-      bind: () => (k) => (localeState.active === 'zh' ? k : EN_DICT[k] ?? k),
+      bind: () => (k) => (services.translationOverride?.(k) ?? (localeState.active === 'zh' ? k : EN_DICT[k] ?? k)),
       register: () => {},
     },
     remote: { $on: () => () => {} },
@@ -368,7 +368,7 @@ test('失败按阶梯补请求；成功一次会取消待发的补请求并复�
   };
   const before = calls.length;
   mode = 'ok';
-  assert.equal(renderCard(Comp, runtime).out, null);
+  assertNeutralUsage(renderCard(Comp, runtime).out);
   scheduled[0]();
   await flush();
   assert.equal(delays.length, 1, `成功后不应再安排补请求，实际 ${delays.join(',')}`);
@@ -391,7 +391,7 @@ test('silent failure recovers through the scheduled background retry', async () 
     renderCard(Comp, runtime);
     usage()[0].resolve({ ok: false, status: 500, json: async () => ({ok: false, message: 'boom'}) });
     await flush();
-    assert.equal(renderCard(Comp, runtime).out, null);
+    assertNeutralUsage(renderCard(Comp, runtime).out);
     assert.equal(typeof retry, 'function');
     retry();
     usage().at(-1).resolve(okResponse(6.66));
@@ -647,7 +647,7 @@ test('订阅用量形态：指示灯与仪表盘弧共用同一套低饱和度�
   assert.deepEqual(peak.arcs, [88, 16]);
 });
 
-test('providers without a usage API render no sidebar row in either layout', async () => {
+test('providers without a usage API show a neutral icon in either layout', async () => {
   for (const wide of [true, false]) {
     const { usage } = makePendingFetch();
     const runtime = makeRuntime();
@@ -655,7 +655,7 @@ test('providers without a usage API render no sidebar row in either layout', asy
     renderCard(Comp, runtime, { wide });
     usage()[0].resolve(unsupportedResponse());
     await flush();
-    assert.equal(renderCard(Comp, runtime, { wide }).out, null);
+    assertNeutralUsage(renderCard(Comp, runtime, { wide }).out);
   }
 });
 
@@ -1182,7 +1182,7 @@ test('DSH 语言切换后立即按新语言重取一次', async () => {
 });
 
 
-test('provider errors are invisible in both sidebar widths', async () => {
+test('provider errors stay in the neutral icon tooltip in both sidebar widths', async () => {
   globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({
     ok: true, provider: {id: 'anthropic', kind: 'oauth'}, usage: null,
     errors: ['Usage temporarily rate-limited'],
@@ -1191,6 +1191,26 @@ test('provider errors are invisible in both sidebar widths', async () => {
   const Comp = loadClient(runtime);
   renderCard(Comp, runtime);
   await flush();
-  assert.equal(renderCard(Comp, runtime).out, null);
-  assert.equal(renderCard(Comp, runtime, {wide: false}).out, null);
+  assertNeutralUsage(renderCard(Comp, runtime).out);
+  assertNeutralUsage(renderCard(Comp, runtime, {wide: false}).out);
+});
+
+function assertNeutralUsage(node) {
+  assert.equal(node.type, 'button');
+  assert.equal(node.props.style.width, 24);
+  assert.equal(textOf(node), '');
+  assert.ok(node.props.title);
+  assert.equal(node.props.style.background, 'transparent');
+}
+
+test('English usage text does not flash a host fallback dictionary during panel hydration', async () => {
+  globalThis.fetch = async () => stateResponse(false, null);
+  const runtime = makeRuntime();
+  const slots = loadSlots(runtime, 'en', {translationOverride: () => '余额'});
+  const Comp = slots['sidebar.footer.action'];
+  renderCard(Comp, runtime);
+  await flush();
+  const out = renderCard(Comp, runtime).out;
+  assert.equal(out.props['aria-label'], 'Account usage, click to refresh');
+  assert.ok(!textOf(out).includes('余额'));
 });
